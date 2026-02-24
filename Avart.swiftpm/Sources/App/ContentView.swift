@@ -2,16 +2,28 @@ import SwiftUI
 
 /// Root navigation router. Manages screen transitions through the Golden Path.
 struct ContentView: View {
-    enum Screen {
+    enum Screen: Equatable {
         case launch
         case nightSelection
         case canvas(Night, isPassive: Bool)
-        case reflection(SessionData, frozenStrokes: [PolarStroke])
+        case reflection(Night)
+
+        static func == (lhs: Screen, rhs: Screen) -> Bool {
+            switch (lhs, rhs) {
+            case (.launch, .launch): return true
+            case (.nightSelection, .nightSelection): return true
+            case (.canvas(let a, let b), .canvas(let c, let d)):
+                return a == c && b == d
+            case (.reflection(let a), .reflection(let b)):
+                return a == b
+            default: return false
+            }
+        }
     }
 
     @EnvironmentObject var rhythmEngine: RhythmEngine
     @State private var currentScreen: Screen = .launch
-    @State private var drawingEngineRef: PolarDrawingEngine?
+    @State private var reflectionData: (SessionData, [PolarStroke])?
 
     var body: some View {
         ZStack {
@@ -47,39 +59,31 @@ struct ContentView: View {
                 CanvasScreen(
                     night: night,
                     isPassiveMode: isPassive,
-                    onReflect: { sessionData in
-                        // Capture frozen strokes before transitioning
-                        let frozen = drawingEngineRef?.snapshot() ?? []
+                    onReflect: { sessionData, frozenStrokes in
+                        reflectionData = (sessionData, frozenStrokes)
                         withAnimation(.easeInOut(duration: 0.5)) {
-                            currentScreen = .reflection(sessionData, frozenStrokes: frozen)
+                            currentScreen = .reflection(night)
                         }
                     }
                 )
                 .transition(.opacity)
 
-            case .reflection(let sessionData, let frozenStrokes):
-                ReflectionScreen(
-                    sessionData: sessionData,
-                    frozenStrokes: frozenStrokes,
-                    onNewNight: {
-                        withAnimation(.easeInOut(duration: 0.5)) {
-                            currentScreen = .nightSelection
+            case .reflection:
+                if let (sessionData, frozenStrokes) = reflectionData {
+                    ReflectionScreen(
+                        sessionData: sessionData,
+                        frozenStrokes: frozenStrokes,
+                        onNewNight: {
+                            reflectionData = nil
+                            withAnimation(.easeInOut(duration: 0.5)) {
+                                currentScreen = .nightSelection
+                            }
                         }
-                    }
-                )
-                .transition(.opacity)
+                    )
+                    .transition(.opacity)
+                }
             }
         }
-        .animation(.easeInOut(duration: 0.5), value: screenID)
-    }
-
-    /// Simple screen identifier for animation tracking
-    private var screenID: String {
-        switch currentScreen {
-        case .launch: return "launch"
-        case .nightSelection: return "nightSelection"
-        case .canvas: return "canvas"
-        case .reflection: return "reflection"
-        }
+        .animation(.easeInOut(duration: 0.5), value: currentScreen)
     }
 }

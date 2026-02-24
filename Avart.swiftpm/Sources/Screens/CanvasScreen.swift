@@ -6,7 +6,7 @@ import Combine
 struct CanvasScreen: View {
     let night: Night
     let isPassiveMode: Bool
-    let onReflect: (SessionData) -> Void
+    let onReflect: (SessionData, [PolarStroke]) -> Void
 
     @EnvironmentObject var rhythmEngine: RhythmEngine
     @StateObject private var drawingEngine = PolarDrawingEngine()
@@ -18,13 +18,12 @@ struct CanvasScreen: View {
     @State private var latticeOpacity: Double = 0
     @State private var showTapHint: Bool = true
     @State private var waveformAmplitude: Float = 0
-    @State private var cancellables = Set<AnyCancellable>()
 
     @Environment(\.accessibilityReduceMotion) var reduceMotion
 
     private let symmetryOptions = [4, 6, 8, 12]
 
-    init(night: Night, isPassiveMode: Bool, onReflect: @escaping (SessionData) -> Void) {
+    init(night: Night, isPassiveMode: Bool, onReflect: @escaping (SessionData, [PolarStroke]) -> Void) {
         self.night = night
         self.isPassiveMode = isPassiveMode
         self.onReflect = onReflect
@@ -74,6 +73,9 @@ struct CanvasScreen: View {
         }
         .onDisappear {
             passiveSequencer.stop()
+        }
+        .onChange(of: rhythmEngine.currentAmplitude) { _, newValue in
+            waveformAmplitude = newValue
         }
     }
 
@@ -130,10 +132,8 @@ struct CanvasScreen: View {
 
     private var canvasView: some View {
         TimelineView(.animation) { timeline in
+            let _ = updateEngine(date: timeline.date)
             Canvas { context, size in
-                // Update engine
-                drawingEngine.update(date: timeline.date, canvasSize: size)
-
                 // Draw dot lattice
                 let lattice = RangoliLattice(night: night)
                 SymmetryRenderer.drawLattice(
@@ -154,6 +154,14 @@ struct CanvasScreen: View {
             }
         }
         .accessibilityLabel("Rangoli canvas with \(drawingEngine.beatCount) strokes, \(symmetryFold)-fold symmetry")
+    }
+
+    /// Update the drawing engine each frame. Called from TimelineView body
+    /// to trigger state changes that redraw the Canvas.
+    @discardableResult
+    private func updateEngine(date: Date) -> Bool {
+        drawingEngine.update(date: date, canvasSize: .zero)
+        return true
     }
 
     // MARK: - Zone B: Rhythm Bar
@@ -258,9 +266,6 @@ struct CanvasScreen: View {
                 )
             }
         }
-        .onChange(of: rhythmEngine.currentAmplitude) { _, newValue in
-            waveformAmplitude = newValue
-        }
     }
 
     // MARK: - Actions
@@ -269,32 +274,20 @@ struct CanvasScreen: View {
         sessionStartTime = .now
 
         // Configure drawing engine
+        let beatSource: PassthroughSubject<BeatEvent, Never>
         if isPassiveMode {
-            drawingEngine.configure(night: night, beatPublisher: passiveSequencer.beatPublisher)
+            beatSource = passiveSequencer.beatPublisher
+            drawingEngine.configure(night: night, beatPublisher: beatSource)
             passiveSequencer.start(night: night)
         } else {
-            drawingEngine.configure(night: night, beatPublisher: rhythmEngine.beatPublisher)
+            beatSource = rhythmEngine.beatPublisher
+            drawingEngine.configure(night: night, beatPublisher: beatSource)
         }
 
-        // Subscribe beat events to BPM tracker
-        let publisher = isPassiveMode ? passiveSequencer.beatPublisher : rhythmEngine.beatPublisher
-        publisher
-            .receive(on: RunLoop.main)
-            .sink { [bpmTracker] event in
-                Task { @MainActor in
-                    bpmTracker.recordBeat(event)
-                }
-            }
-            .store(in: &cancellables)
-
-        // Update drawing engine BPM
-        bpmTracker.$currentBPM
-            .sink { [drawingEngine] bpm in
-                Task { @MainActor in
-                    drawingEngine.setBPM(bpm)
-                }
-            }
-            .store(in: &cancellables)
+        // Connect BPM tracker to drawing engine
+        drawingEngine.onBPMUpdate = { [weak bpmTracker] event in
+            bpmTracker?.recordBeat(event)
+        }
 
         // Fade in lattice dots
         if reduceMotion {
@@ -314,12 +307,12 @@ struct CanvasScreen: View {
     }
 
     private func handleTap() {
-        rhythmEngine.fireTapBeat()
-
         if isPassiveMode {
             // In passive mode, tap adds beats on top of the sequence
             let event = BeatEvent.tapEvent()
             passiveSequencer.beatPublisher.send(event)
+        } else {
+            rhythmEngine.fireTapBeat()
         }
     }
 
@@ -333,8 +326,9 @@ struct CanvasScreen: View {
             peakAmplitude: rhythmEngine.currentAmplitude,
             symmetryFold: symmetryFold
         )
+        let frozenStrokes = drawingEngine.snapshot()
         passiveSequencer.stop()
-        onReflect(sessionData)
+        onReflect(sessionData, frozenStrokes)
     }
 
     private func saveCanvasSnapshot() {

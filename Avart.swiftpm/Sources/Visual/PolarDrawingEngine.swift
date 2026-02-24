@@ -11,6 +11,9 @@ final class PolarDrawingEngine: ObservableObject {
     @Published var symmetryFold: Int = 6
     @Published var isInLatticePhase: Bool = false
 
+    /// Callback fired on each beat for BPM tracking
+    var onBPMUpdate: ((BeatEvent) -> Void)?
+
     private var cancellables = Set<AnyCancellable>()
     private var night: Night = .night3
     private var lattice: RangoliLattice?
@@ -88,6 +91,9 @@ final class PolarDrawingEngine: ObservableObject {
 
         // Fire haptic
         HapticController.shared.fireBeatHaptic(amplitude: event.amplitude)
+
+        // Notify BPM tracker
+        onBPMUpdate?(event)
 
         // Select a color from the night palette
         let colorIndex = beatCount % night.strokeColors.count
