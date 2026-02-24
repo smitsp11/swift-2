@@ -1,21 +1,34 @@
 // swift-tools-version: 6.0
 
 import PackageDescription
+import AppleProductTypes
 
 let package = Package(
     name: "Avart",
     platforms: [
-        .iOS(.v18),
-        .macOS(.v15)
+        .iOS("26.0"),
+        .macOS("26.0")
     ],
     products: [
-        .library(
+        .iOSApplication(
             name: "Avart",
-            targets: ["Avart"]
+            targets: ["Avart"],
+            displayVersion: "1.0",
+            bundleVersion: "1",
+            appIcon: .placeholder(icon: .flame),
+            accentColor: .presetColor(.orange),
+            supportedDeviceFamilies: [.pad],
+            supportedInterfaceOrientations: [
+                .landscapeRight,
+                .landscapeLeft
+            ],
+            capabilities: [
+                .microphone(purposeString: "Avart listens for claps and rhythmic sounds to generate Rangoli art in real time.")
+            ]
         )
     ],
     targets: [
-        .target(
+        .executableTarget(
             name: "Avart",
             path: "Sources"
         )
