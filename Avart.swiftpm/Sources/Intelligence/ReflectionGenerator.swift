@@ -1,32 +1,27 @@
 import Foundation
-import FoundationModels
 
-/// On-device poem generation using Foundation Models.
-/// Falls back to curated poems if the model is unavailable.
+/// On-device poem generation.
+/// Uses hardcoded curated poems since FoundationModels requires iOS 26+.
+/// When iOS 26 SDK becomes available, uncomment the FoundationModels integration below.
 @MainActor
 final class ReflectionGenerator {
 
-    @Generable
     struct NightReflection {
-        @Guide(description: "A single evocative word in Sanskrit or Gujarati that captures the session")
         var word: String
-        @Guide(description: "A 3-line reflective poem, each line under 12 words, inspired by Navratri")
         var poem: String
     }
 
     /// Generate a reflection from session data.
-    /// Uses Foundation Models on-device; falls back to curated strings if unavailable.
+    /// Currently uses curated fallback poems.
+    /// When FoundationModels is available (iOS 26+), this will use on-device AI generation.
     func generate(from sessionData: SessionData) async -> NightReflection {
-        // Try Foundation Models first
-        do {
-            let session = LanguageModelSession()
-            let prompt = sessionData.buildPrompt()
-            let response = try await session.respond(to: prompt, generating: NightReflection.self)
-            return response
-        } catch {
-            print("FoundationModels unavailable, using fallback: \(error)")
-            return fallbackReflection(for: sessionData)
-        }
+        // TODO: When iOS 26 SDK is available, uncomment:
+        // import FoundationModels
+        // @Generable struct ... { }
+        // let session = LanguageModelSession()
+        // return try await session.respond(to: prompt, generating: NightReflection.self)
+
+        return fallbackReflection(for: sessionData)
     }
 
     // MARK: - Fallback Poems (9 total: 3 per night)

@@ -6,8 +6,8 @@ import AppleProductTypes
 let package = Package(
     name: "Avart",
     platforms: [
-        .iOS("26.0"),
-        .macOS("26.0")
+        .iOS("18.0"),
+        .macOS("15.0")
     ],
     products: [
         .iOSApplication(
