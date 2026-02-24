@@ -5,29 +5,17 @@ import PackageDescription
 let package = Package(
     name: "Avart",
     platforms: [
-        .iOS("26.0"),
-        .macOS("26.0")
+        .iOS(.v18),
+        .macOS(.v15)
     ],
     products: [
-        .iOSApplication(
+        .library(
             name: "Avart",
-            targets: ["Avart"],
-            displayVersion: "1.0",
-            bundleVersion: "1",
-            appIcon: .placeholder(icon: .flame),
-            accentColor: .presetColor(.orange),
-            supportedDeviceFamilies: [.pad],
-            supportedInterfaceOrientations: [
-                .landscapeRight,
-                .landscapeLeft
-            ],
-            capabilities: [
-                .microphone(purposeString: "Avart listens for claps and rhythmic sounds to generate Rangoli art in real time.")
-            ]
+            targets: ["Avart"]
         )
     ],
     targets: [
-        .executableTarget(
+        .target(
             name: "Avart",
             path: "Sources"
         )
