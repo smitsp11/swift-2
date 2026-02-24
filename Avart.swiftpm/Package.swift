@@ -15,7 +15,6 @@ let package = Package(
             targets: ["Avart"],
             displayVersion: "1.0",
             bundleVersion: "1",
-            appIcon: .placeholder(icon: .flame),
             accentColor: .presetColor(.orange),
             supportedDeviceFamilies: [.pad],
             supportedInterfaceOrientations: [
